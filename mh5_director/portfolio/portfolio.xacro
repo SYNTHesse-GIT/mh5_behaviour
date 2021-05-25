@@ -1,0 +1,9 @@
+<?xml version="1.0" ?>
+<portfolios xmlns:xacro="http://ros.org/wiki/xacro">
+
+    <xacro:include filename="$(find mh5_director)/portfolio/head.xacro"/>
+    <xacro:include filename="$(find mh5_director)/portfolio/posture.xacro"/>
+    <xacro:include filename="$(find mh5_director)/portfolio/wave.xacro"/>
+    <xacro:include filename="$(find mh5_director)/portfolio/walk.xacro"/>
+
+</portfolios>

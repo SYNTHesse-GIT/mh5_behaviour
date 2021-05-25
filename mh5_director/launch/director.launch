@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<launch>
+
+  <arg name="portfolio" default="$(find mh5_director)/portfolio/portfolio.xacro"/>
+
+  <param name="portfolio" command="$(find xacro)/xacro $(arg portfolio)" />
+
+  <node name="director" pkg="mh5_director" type="director_node.py" output="screen"/>
+
+</launch>

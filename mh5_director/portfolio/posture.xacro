@@ -1,0 +1,65 @@
+<?xml version="1.0" ?>
+<portfolios xmlns:xacro="http://ros.org/wiki/xacro">
+
+<portfolio name="posture" units="deg" 
+           joints="head_p head_y 
+                   l_sho_p l_sho_r l_elb_y l_elb_p 
+                   r_sho_p r_sho_r r_elb_y r_elb_p 
+                   l_hip_r l_hip_p l_kne_p l_kne_y l_ank_p l_ank_r
+                   r_hip_r r_hip_p r_kne_p r_kne_y r_ank_p r_ank_r" 
+           duration="0.5">
+
+    <xacro:property name="sho_back" value="-25.0"/>
+    <xacro:property name="stand_hip" value="30.0"/>
+    <xacro:property name="sit_hip" value="95.0"/>
+    <xacro:property name="sit_ank" value="${sit_hip+15.0}"/>
+
+    <poses>
+        <pose name="prepare" 
+              positions="0.0 0.0
+                         0.0 0.0 0.0 0.0
+                         0.0 0.0 0.0 0.0
+                         0.0 0.0 0.0 0.0 0.0 0.0
+                         0.0 0.0 0.0 0.0 0.0 0.0" />
+
+        <pose name="stand" 
+              positions="0.0 0.0
+                         ${sho_back} 0.0 0.0 0.0
+                         ${sho_back} 0.0 0.0 0.0
+                         0.0 ${stand_hip} ${2*stand_hip} 0.0 ${stand_hip} 0.0
+                         0.0 ${stand_hip} ${2*stand_hip} 0.0 ${stand_hip} 0.0" />
+
+        <pose name="sit" 
+              positions="0.0 0.0
+                         ${sho_back} 0.0 0.0 0.0
+                         ${sho_back} 0.0 0.0 0.0
+                         0.0 ${sit_hip} ${sit_hip+sit_ank} 0.0 ${sit_ank} 0.0
+                         0.0 ${sit_hip} ${sit_hip+sit_ank} 0.0 ${sit_ank} 0.0" />
+    </poses>
+
+    <scenes>
+        <scene name="stand">
+            <pose name="prepare" duration="1.0" />
+            <pose name="stand" duration="0.25" />
+        </scene>
+
+        <scene name="sit">
+            <pose name="sit" duration="0.75" />
+        </scene>
+
+    </scenes>
+
+    <scripts>
+        <script name="stand">
+            <scene name="stand"/>
+        </script>
+
+        <script name="sit">
+            <scene name="sit" />
+        </script>
+
+    </scripts>
+
+</portfolio>
+
+</portfolios>

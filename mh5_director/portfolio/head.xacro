@@ -1,0 +1,81 @@
+<?xml version="1.0" ?>
+<portfolios xmlns:xacro="http://ros.org/wiki/xacro">
+
+<portfolio name="head" units="deg" joints="head_p head_y" duration="0.5">
+
+    <xacro:property name="lr_swing" value="30"/>
+    <xacro:property name="up_swing" value="15"/>
+
+    <poses>
+        <pose name="head_front" positions="0.0 0.0" />
+        <pose name="head_left" positions="0.0 ${lr_swing}" />
+        <pose name="head_right" positions="0.0 -${lr_swing}" />
+        <pose name="head_up" positions="${up_swing} 0.0" />
+        <pose name="head_down" positions="-${up_swing} 0.0" />
+    </poses>
+
+    <scenes>
+
+        <scene name="head_front">
+            <pose name="head_front" duration="0.25" />
+        </scene>
+
+        <scene name="no">
+            <pose name="head_left" duration="0.25" />
+            <pose name="head_right" duration="0.25" />
+        </scene>
+
+        <scene name="yes">
+            <pose name="head_up" duration="0.25" />
+            <pose name="head_down" duration="0.25" />
+        </scene>
+
+    </scenes>
+
+    <scripts>
+
+        <script name="front">
+            <scene name="head_front" inverse="False" repeat="1" />
+        </script>
+
+        <script name="no">
+            <scene name="head_front" inverse="False" repeat="1" />
+            <scene name="no" inverse="False" repeat="1" />
+            <scene name="head_front" inverse="False" repeat="1" />
+        </script>
+
+        <script name="no-no">
+            <scene name="head_front" inverse="False" repeat="1" />
+            <scene name="no" inverse="False" repeat="2" />
+            <scene name="head_front" inverse="False" repeat="1" />
+        </script>
+
+        <script name="no-no-no">
+            <scene name="head_front" inverse="False" repeat="1" />
+            <scene name="no" inverse="False" repeat="3" />
+            <scene name="head_front" inverse="False" repeat="1" />
+        </script>
+
+        <script name="yes">
+            <scene name="head_front" inverse="False" repeat="1" />
+            <scene name="yes" inverse="False" repeat="1" />
+            <scene name="head_front" inverse="False" repeat="1" />
+        </script>
+
+        <script name="yes-yes">
+            <scene name="head_front" inverse="False" repeat="1" />
+            <scene name="yes" inverse="False" repeat="2" />
+            <scene name="head_front" inverse="False" repeat="1" />
+        </script>
+
+        <script name="yes-yes-yes">
+            <scene name="head_front" inverse="False" repeat="1" />
+            <scene name="yes" inverse="False" repeat="3" />
+            <scene name="head_front" inverse="False" repeat="1" />
+        </script>
+
+    </scripts>
+
+</portfolio>
+
+</portfolios>

@@ -1,0 +1,199 @@
+<?xml version="1.0" ?>
+<portfolios xmlns:xacro="http://ros.org/wiki/xacro">
+
+<portfolio name="walk" units="deg" 
+           joints="head_p head_y 
+                   l_sho_p l_sho_r l_elb_y l_elb_p 
+                   r_sho_p r_sho_r r_elb_y r_elb_p 
+                   l_hip_r l_hip_p l_kne_p l_kne_y l_ank_p l_ank_r
+                   r_hip_r r_hip_p r_kne_p r_kne_y r_ank_p r_ank_r" 
+           duration="0.5">
+
+    <!-- Initial pose flexed knees -->
+    <xacro:property name="sho_i" value="-40.0" />                      <!-- init shoulder pitch  -->
+    <xacro:property name="osborne" value="1.5" />                      <!-- Osborne power stance -->
+    <xacro:property name="hip_i" value="62.0" />                       <!-- init hip pitch       -->
+    <xacro:property name="ank_i" value="${hip_i-11.0}" />              <!-- init ankle pitch     -->
+    <xacro:property name="fws" value="9.0" />                          <!-- forward stance angle -->
+    <xacro:property name="kne_i" value="${hip_i+ank_i-fws}" />         <!-- init knee pitch      -->
+
+    <!-- Roll params -->
+    <xacro:property name="ups" value="3.0" />                      <!-- up swing  -->
+    <xacro:property name="lrr" value="12.0" />                      <!-- left-right roll  -->
+    <xacro:property name="lrrs" value="15.0" />                      <!-- left-right roll at start -->
+
+    <!-- Lift params -->
+    <xacro:property name="lift" value="15.0" />                     <!-- lift angle      -->
+    <xacro:property name="er" value="3.0" />                     <!-- extra roll hips      -->
+    <xacro:property name="hip_l" value="${hip_i+ups+lift}" />       <!-- lift hip pitch  -->
+    <xacro:property name="ank_l" value="${ank_i+ups+lift}" />          <!-- lift ank pitch  -->
+    <xacro:property name="kne_l" value="${hip_l+ank_l-fws}" />         <!-- lift knee pitch  -->
+
+    <xacro:property name="lrmr" value="${(lrr-osborne)/2}" />      <!-- left-right mid roll  -->
+
+    <!-- V-Stance-->
+    <xacro:property name="step" value="9.0" />                    <!-- step angle  -->
+    <xacro:property name="arms" value="20.0" />                    <!-- arm swing  -->
+    <xacro:property name="hip_b" value="${hip_i-step}" />         <!-- v-stance back foot hip pitch  -->
+    <xacro:property name="ank_b" value="${ank_i+step}" />         <!-- v-stance back foot ankle pitch  -->
+    <xacro:property name="kne_b" value="${hip_b+ank_b-fws}" /> <!-- v-stance back foot knee pitch  -->
+
+    <xacro:property name="hip_f" value="${hip_i+step}" />         <!-- v-stance back foot hip pitch  -->
+    <xacro:property name="ank_f" value="${ank_i-step}" />         <!-- v-stance front foot ankle pitch  -->
+    <xacro:property name="kne_f" value="${hip_f+ank_f-fws}" /> <!-- v-stance back foot knee pitch  -->
+
+    <xacro:property name="hip_b_m" value="${(hip_i+ups+hip_b)/2}" />         <!-- mid v-stance back foot ankle pitch  -->
+    <xacro:property name="ank_b_m" value="${(ank_i+ank_b)/2}" />         <!-- mid v-stance back foot ankle pitch  -->
+    <xacro:property name="kne_b_m" value="${hip_b_m+ank_b_m-fws}" />         <!-- mid v-stance back foot knee pitch  -->
+
+
+    <poses>
+
+        <pose name="init"
+              positions="0.0 0.0
+                         ${sho_i} 0.0 0.0 0.0
+                         ${sho_i} 0.0 0.0 0.0
+                         ${osborne} ${hip_i} ${kne_i} 0.0 ${ank_i} -${osborne}
+                         ${osborne} ${hip_i} ${kne_i} 0.0 ${ank_i} -${osborne}" />
+
+        <!-- Forward with right - roll -->
+        <pose name="frs_r" 
+              joints="   l_hip_p       l_kne_p       l_ank_r
+                         r_hip_p       r_kne_p       r_ank_r"
+              positions="${hip_i+ups}  ${kne_i+ups}  ${lrrs}
+                         ${hip_i+ups}  ${kne_i+ups}  -${2*lrrs}" />
+
+        <!-- Forward with right - lift -->
+        <pose name="frs_l"
+              joints="   l_hip_r        l_hip_p       l_kne_p       l_ank_p     l_ank_r
+                         r_hip_r        r_hip_p       r_kne_p       r_ank_p     r_ank_r"
+              positions="${osborne+er}  ${hip_i+ups}  ${kne_i+ups}  ${ank_i}    ${lrrs}
+                         ${osborne+er}  ${hip_l}      ${kne_l}      ${ank_l}    -${lrrs}" />
+
+        <!-- Forward with right - swing -->
+        <pose name="frs_s"
+              joints="   l_sho_p
+                         r_sho_p
+                         l_hip_r     l_hip_p   l_kne_p   l_ank_p   l_ank_r
+                         r_hip_r     r_hip_p   r_kne_p   r_ank_p   r_ank_r"
+              positions="${sho_i+arms}
+                         ${sho_i-arms}
+                         ${osborne+er}  ${hip_b}  ${kne_b}  ${ank_b}  ${lrrs*0.75}
+                         ${osborne+er}  ${hip_f}  ${kne_f}  ${ank_f}  -${lrrs*0.75}" />
+
+        <!-- Forward - unroll -->
+        <pose name="f_u"
+              joints="   l_hip_r     l_ank_r
+                         r_hip_r     r_ank_r"
+              positions="${osborne}  -${osborne}
+                         ${osborne}  -${osborne}" />
+
+
+        <!-- Forward right-left - roll -->
+        <pose name="frl_r" 
+              joints="   l_hip_p       l_kne_p       l_ank_r
+                         r_hip_p       r_kne_p       r_ank_r"
+              positions="${hip_b+ups}  ${kne_b+ups}  -${2*lrr}
+                         ${hip_f+ups}  ${kne_f+ups}  ${lrr}" />
+
+        <!-- Forward right-left - lift -->
+        <pose name="frl_l"
+              joints="   l_sho_p
+                         r_sho_p
+                         l_hip_r        l_hip_p       l_kne_p   l_ank_p       l_ank_r
+                         r_hip_r        r_hip_p       r_kne_p   r_ank_p       r_ank_r"
+              positions="${sho_i-arms/2}
+                         ${sho_i+arms/2}
+                         ${osborne+er}  ${hip_l}      ${kne_l}  ${ank_l}      -${lrr}
+                         ${osborne+2*er}  ${hip_f+2*ups}  ${kne_f-2*ups}  ${ank_f}  ${lrr*1.25}" />
+
+        <!-- Forward right-left - swing -->
+        <pose name="frl_s"
+              joints="   l_sho_p
+                         r_sho_p
+                         l_hip_r     l_hip_p   l_kne_p   l_ank_p   l_ank_r
+                         r_hip_r     r_hip_p   r_kne_p   r_ank_p   r_ank_r"
+              positions="${sho_i-arms}
+                         ${sho_i+arms}
+                         ${osborne+er}  ${hip_f}  ${kne_f}  ${ank_f}  ${lrr*0.75}
+                         ${osborne+2*er}  ${hip_b}  ${kne_b}  ${ank_b}  -${lrr*1.25}" />
+
+        <!-- Forward left-right - roll -->
+        <pose name="flr_r" 
+              joints="   l_hip_p       l_kne_p       l_ank_r
+                         r_hip_p       r_kne_p       r_ank_r"
+              positions="${hip_f+ups}  ${kne_f+ups}  ${lrr}
+                         ${hip_b+ups}  ${kne_b+ups}  -${2*lrr}" />
+
+        <!-- Forward left-right - lift -->
+        <pose name="flr_l"
+              joints="   l_sho_p
+                         r_sho_p
+                         l_hip_r        l_hip_p       l_kne_p   l_ank_p       l_ank_r
+                         r_hip_r        r_hip_p       r_kne_p   r_ank_p       r_ank_r"
+              positions="${sho_i+arms/2}
+                         ${sho_i-arms/2}
+                         ${osborne+2*er}  ${hip_f+2*ups}  ${kne_f-2*ups}  ${ank_f}  ${lrr*1.25}
+                         ${osborne+er}  ${hip_l}      ${kne_l}  ${ank_l}      -${lrr}" />
+
+        <!-- Forward left-right - swing -->
+        <pose name="flr_s"
+              joints="   l_sho_p
+                         r_sho_p
+                         l_hip_r     l_hip_p   l_kne_p   l_ank_p   l_ank_r
+                         r_hip_r     r_hip_p   r_kne_p   r_ank_p   r_ank_r"
+              positions="${sho_i+arms}
+                         ${sho_i-arms}
+                         ${osborne+2*er}  ${hip_b}  ${kne_b}  ${ank_b}  -${lrr*1.25}
+                         ${osborne+er}  ${hip_f}  ${kne_f}  ${ank_f}  ${lrr*0.75}" />
+
+    </poses>
+
+    <scenes>
+
+        <scene name="init">
+            <pose name="init" duration="0.75" />
+        </scene>
+
+        <scene name="frs">
+            <pose name="frs_r" duration="0.25"  />  <!-- roll   -->
+            <pose name="frs_l" duration="0.25"  />  <!-- lift   -->
+            <pose name="frs_s" duration="0.50" />   <!-- swing  -->
+            <pose name="f_u" duration="0.25" />   <!-- unroll -->
+        </scene>
+
+        <scene name="frl">
+            <pose name="frl_r" duration="0.25" />  <!-- roll   -->
+            <pose name="frl_l" duration="0.25"  />  <!-- lift   -->
+            <pose name="frl_s" duration="0.50" />   <!-- swing  -->
+            <pose name="f_u" duration="0.25" />   <!-- unroll -->
+        </scene>
+
+        <scene name="flr">
+            <pose name="flr_r" duration="0.25" />  <!-- roll   -->
+            <pose name="flr_l" duration="0.25"  />  <!-- lift   -->
+            <pose name="flr_s" duration="0.50" />   <!-- swing  -->
+            <pose name="f_u" duration="0.25" />   <!-- unroll -->
+        </scene>
+
+    </scenes>
+
+
+    <scripts>
+
+        <script name="init">
+            <scene name="init" />
+        </script>
+
+        <script name="walk_right">
+            <scene name="init" />
+            <scene name="frs" />
+            <scene name="frl" />
+            <scene name="flr" />
+        </script>
+
+    </scripts>
+
+</portfolio>
+
+</portfolios>

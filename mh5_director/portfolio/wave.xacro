@@ -1,0 +1,59 @@
+<?xml version="1.0" ?>
+<portfolios xmlns:xacro="http://ros.org/wiki/xacro">
+
+<portfolio name="wave" units="deg" 
+           joints="l_sho_p l_sho_r l_elb_y l_elb_p
+                   r_sho_p r_sho_r r_elb_y r_elb_p" 
+           duration="0.5">
+
+    <poses>
+
+        <pose name="raise_hands"
+              positions="180.0 75.0 -90.0 0.0
+                         180.0 75.0 -90.0 0.0" />
+
+        <pose name="wave_out"
+              positions="180.0 90.0 -90.0 0.0
+                         180.0 90.0 -90.0 0.0" />
+
+        <pose name="wave_in"
+              positions="180.0 60.0 -90.0 0.0
+                         180.0 60.0 -90.0 0.0" />
+
+        <pose name="lower_hands"
+              positions="-25.0 10.0 0.0 0.0
+                         -25.0 10.0 0.0 0.0" />
+
+    </poses>
+
+    <scenes>
+
+        <scene name="raise_hands">
+            <pose name="raise_hands" duration="1.0" />
+        </scene>
+
+        <scene name="wave_once">
+            <pose name="wave_out" duration="0.5" />
+            <pose name="wave_in" duration="0.5" />
+        </scene>
+
+        <scene name="lower_hands">
+            <pose name="lower_hands" duration="1.0" />
+        </scene>
+
+    </scenes>
+
+    <scripts>
+
+        <script name="wave_3_times">
+            <scene name="raise_hands" />
+            <scene name="wave_once" repeat="3" />
+            <scene name="lower_hands" />
+        </script>
+
+    </scripts>
+
+
+</portfolio>
+
+</portfolios>
