@@ -1,13 +1,17 @@
 
+import rospy
 import kdl_parser_py.urdf
 import PyKDL as kdl
 
 
 class Kinematics():
 
-    def __init__(self, param_name='/robot_description', quiet=True):
-        (ok, self.robot) = kdl_parser_py.urdf.treeFromParam(
-            param_name, quiet=quiet)
+    def __init__(self, param_name='robot_description', quiet=True):
+        (ok, self.robot) = kdl_parser_py.urdf.treeFromParam(param_name, quiet=quiet)
+        
+        if not ok:
+            rospy.logerr('failed to read robot description from parameter server')
+            raise RuntimeError('failed to read robot description from parameter server')
 
         ch_par = [
             ('LL', 'left_landing'),

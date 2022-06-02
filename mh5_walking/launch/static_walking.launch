@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<launch>
+    <rosparam file="$(find mh5_walking)/config/static_walking.yaml" ns="static_walking" command="load"/>
+
+    <node name="static_walking_controller" pkg="mh5_walking" type="static_walking_node.py" output="screen"/>
+
+</launch>
