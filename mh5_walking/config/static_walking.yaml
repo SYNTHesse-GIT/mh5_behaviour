@@ -2,3 +2,6 @@ using: [
   arms_pos_controller,
   legs_pos_controller
 ]
+
+params:
+  prep_t: 5.0   # prep time for start/stop pose
