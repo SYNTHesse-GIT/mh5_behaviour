@@ -1,29 +1,27 @@
 import rospy
 from .walking_base import WalkingBase
-from .kinematics import Kinematics
 
 
 class StaticWalking(WalkingBase):
 
     def __init__(self):
         WalkingBase.__init__(self, name_space='static_walking')
-        self.K = Kinematics()
-        self.K.reset()
 
     def readParams(self, name_space):
         WalkingBase.readParams(self, name_space)
         # static walking parameters
-        self.legs0 = self.params.get(f'{name_space}/params/legs0', 0.95)
-        self.arms0 = self.params.get(f'{name_space}/params/arms0', -0.75)
-        self.swing_A = self.params.get(f'{name_space}/params/swing_A', 0.032)
-        self.step_L = self.params.get(f'{name_space}/params/step_L', 0.050)
-        self.step_H = self.params.get(f'{name_space}/params/step_H', 0.040)
-        self.speed = self.params.get(f'{name_space}/params/speed', 1.0)
-        self.frecv = self.params.get(f'{name_space}/params/frecv', 100)
-        self.prep_t = self.params.get(f'{name_space}/params/prep_t', 2.0)
-        self.swing_t = self.params.get(f'{name_space}/params/swing_t', 0.5)
-        self.step_t = self.params.get(f'{name_space}/params/step_t', 1.0)
-        self.arms_th = self.params.get(f'{name_space}/params/arm_th', 0.75)
+        params = self.params.get('params', {})
+        self.legs0 = params.get('legs0', 0.95)
+        self.arms0 = params.get('arms0', -0.75)
+        self.swing_A = params.get('swing_A', 0.032)
+        self.step_L = params.get('step_L', 0.050)
+        self.step_H = params.get( 'step_H', 0.040)
+        self.speed = params.get('speed', 1.0)
+        self.frecv = params.get('frecv', 100)
+        self.prep_t = params.get('prep_t', 2.0)
+        self.swing_t = params.get('swing_t', 0.5)
+        self.step_t = params.get('step_t', 1.0)
+        self.arms_th = params.get('arm_th', 0.75)
 
     def startPose(self):
         # wait 2 s for the joint positions to be populated

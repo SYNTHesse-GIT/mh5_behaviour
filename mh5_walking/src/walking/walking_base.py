@@ -7,7 +7,7 @@ from controller_manager_msgs.srv import SwitchController, \
                                         SwitchControllerRequest
 from std_msgs.msg import String, Float64MultiArray
 from sensor_msgs.msg import JointState
-
+from .kinematics import Kinematics
 
 JS = namedtuple('JS', ['p', 'v', 'l'])
 
@@ -19,6 +19,8 @@ class WalkingBase:
         self.controllers = {}
         self.joint_states = {}
         self.joint_commands = {}
+        self.K = Kinematics(joint_states=self.joint_states)
+        # self.K.reset()
         rospy.loginfo('waiting for controller_manager services...')
         rospy.wait_for_service(
             'controller_manager/list_controllers', timeout=5)

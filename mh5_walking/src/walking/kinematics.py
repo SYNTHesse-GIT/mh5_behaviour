@@ -6,7 +6,7 @@ import PyKDL as kdl
 
 class Kinematics():
 
-    def __init__(self, param_name='robot_description'):
+    def __init__(self, joint_states, param_name='robot_description'):
         (ok, self.robot) = kdl_parser_py.urdf.treeFromParam(param_name)
 
         if not ok:
@@ -26,10 +26,10 @@ class Kinematics():
             self.chains[ch_name] = {
                 'chain': chain,
                 'joints': self.__get_joint_names_from_chain(chain),
-                'values': kdl.JntArray(chain.getNrOfJoints()),
                 'FK': kdl.ChainFkSolverPos_recursive(chain),
                 'IK': kdl.ChainIkSolverPos_LMA(chain)
             }
+        self.joint_states = joint_states
 
     def getChains(self):
         return self.chains.keys()
@@ -51,26 +51,26 @@ class Kinematics():
                     for chain in self.chains.values()
                     for name in chain['joints']]
 
-    def getJointValues(self, chain=None):
-        if chain is not None:
-            return list(self.chains[chain]['values'])
-        else:
-            return [value
-                    for ch in self.chains.keys()
-                    for value in self.getJointValues(ch)]
+    # def getJointValues(self, chain=None):
+    #     if chain is not None:
+    #         return list(self.chains[chain]['values'])
+    #     else:
+    #         return [value
+    #                 for ch in self.chains.keys()
+    #                 for value in self.getJointValues(ch)]
 
-    def setJointValues(self, chain, values):
-        assert isinstance(values, kdl.JntArray)
-        # we need to re-allocate because = assigns the link
-        self.chains[chain]['values'] = kdl.JntArray(values)
+    # def setJointValues(self, chain, values):
+    #     assert isinstance(values, kdl.JntArray)
+    #     # we need to re-allocate because = assigns the link
+    #     self.chains[chain]['values'] = kdl.JntArray(values)
 
-    def reset(self, chain=None):
-        if chain is not None:
-            nrJ = self.getNrOfJoints(chain)
-            self.chains[chain]['values'] = kdl.JntArray(nrJ)
-        else:
-            for ch in self.chains.keys():
-                self.reset(ch)
+    # def reset(self, chain=None):
+    #     if chain is not None:
+    #         nrJ = self.getNrOfJoints(chain)
+    #         self.chains[chain]['values'] = kdl.JntArray(nrJ)
+    #     else:
+    #         for ch in self.chains.keys():
+    #             self.reset(ch)
 
     def getJointKDLArray(self, chain):
         return self.chains[chain]['values']
