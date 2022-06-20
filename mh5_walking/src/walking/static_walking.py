@@ -1,5 +1,9 @@
+from tracemalloc import start
 import rospy
-from .walking_base import WalkingBase
+import numpy as np
+import PyKDL as kdl
+from .walking_base import WalkingBase, JS
+from .kinematics import LinearPoser
 
 
 class StaticWalking(WalkingBase):
@@ -28,20 +32,57 @@ class StaticWalking(WalkingBase):
         rospy.sleep(2)
         rospy.loginfo('Static walking: init pose starting...')
         steps = self.frecv * self.prep_t  # number of commands to send
+        # show start pose
+        # for chain in ['LL', 'RL']:
+        #     pos, rpy = self.K.EEPosRPY(chain)
+        #     rospy.loginfo(f'{chain}-Q[]: {self.K.getJointValues(chain)}')
+        #     rospy.loginfo(f'{chain}-Pos: {pos}')
+        #     rospy.loginfo(f'{chain}-RPY: {rpy}')
         # start pose
-        sp = {k: self.joint_states[k].p for k in self.joint_states.keys()}
+        ll_sp = self.K.FK('LL')
+        rl_sp = self.K.FK('RL')
+        # rospy.loginfo(f'Beg Frame: Pos={ll_sp.p}, RPY={ll_sp.M.GetRPY()}')
         # end pose
-        ep = {k: 0.0 for k in self.joint_states.keys()}
-        ep.update(
-            l_sho_p=self.arms0, r_sho_p=self.arms0,
-            l_hip_p=self.legs0, l_kne_p=self.legs0 * 2, l_ank_p=self.legs0,
-            r_hip_p=self.legs0, r_kne_p=self.legs0 * 2, r_ank_p=self.legs0)
-        for step in range(int(steps)):
-            for joint in ep.keys():
-                self.joint_commands[joint] = sp[joint] + \
-                        (ep[joint] - sp[joint]) * (step + 1) / steps
+        ll_ep = kdl.Frame(V=kdl.Vector(0.007, 0.0325, 0.03), R=kdl.Rotation.RPY(0,0,0))
+        # ll_ep.p[2] += 0.05
+        rl_ep = kdl.Frame(V=kdl.Vector(0.007, -0.0325, 0.03), R=kdl.Rotation.RPY(0,0,0))
+        # rospy.loginfo(f'End Frame: Pos={ll_ep.p}, RPY={ll_ep.M.GetRPY()}')
+        # rl_ep.p[2] += 0.05
+        ll_iter = LinearPoser(ll_sp, ll_ep, int(steps))
+        rl_iter = LinearPoser(rl_sp, rl_ep, int(steps))
+        ll_q = self.K.getJointKDLArray('LL')
+        rl_q = self.K.getJointKDLArray('RL')
+        for (pose_ll, pose_rl) in zip(ll_iter, rl_iter):
+            new_ll_q = self.K.IK('LL', pose_ll, ll_q)
+            for i, jn in enumerate(self.K.getJointNames('LL')):
+                pos = new_ll_q[i]
+                vel = abs(new_ll_q[i] - ll_q[i]) * self.frecv
+                acc = vel / 2
+                self.joint_commands[jn] = JS(pos, vel, acc)
+            ll_q = new_ll_q
+            new_rl_q = self.K.IK('RL', pose_rl, rl_q)
+            for i, jn in enumerate(self.K.getJointNames('RL')):
+                pos = new_rl_q[i]
+                vel = abs(new_rl_q[i] - rl_q[i]) * self.frecv
+                acc = vel / 2
+                self.joint_commands[jn] = JS(pos, vel, acc)
+            rl_q = new_rl_q
             self.publishCommands()
             rospy.sleep(1/self.frecv)
+        # ep.update(
+        #     l_sho_p=self.arms0, r_sho_p=self.arms0,
+        #     l_hip_p=self.legs0, l_kne_p=self.legs0 * 2, l_ank_p=self.legs0,
+        #     r_hip_p=self.legs0, r_kne_p=self.legs0 * 2, r_ank_p=self.legs0)
+        # for step in range(int(steps)):
+        #     for j in ep.keys():
+        #         position = sp[j] + (ep[j] - sp[j]) * (step + 1) / steps
+        #         velocity = (ep[j] - sp[j]) / steps
+        #         acceleration = velocity / 4
+        #         self.joint_commands[j] = JS(position, velocity, acceleration)
+        #     self.publishCommands()
+        #     rospy.sleep(1/self.frecv)
+
+        rospy.loginfo('Static walking: start pose complete')
 
     def stopPose(self):
         rospy.loginfo('Static walking: stop pose starting...')
@@ -55,9 +96,11 @@ class StaticWalking(WalkingBase):
             l_hip_p=1.69, l_kne_p=3.57, l_ank_p=1.92,
             r_hip_p=1.69, r_kne_p=3.57, r_ank_p=1.92)
         for step in range(int(steps)):
-            for joint in ep.keys():
-                self.joint_commands[joint] = sp[joint] + \
-                        (ep[joint] - sp[joint]) * (step + 1) / steps
+            for j in ep.keys():
+                position = sp[j] + (ep[j] - sp[j]) * (step + 1) / steps
+                velocity = (ep[j] - sp[j]) / steps
+                acceleration = velocity / 4
+                self.joint_commands[j] = JS(position, velocity, acceleration)
             self.publishCommands()
             rospy.sleep(1/self.frecv)
         rospy.loginfo('Static walking: stop pose complete')

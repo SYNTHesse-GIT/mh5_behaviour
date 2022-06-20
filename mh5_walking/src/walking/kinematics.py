@@ -1,4 +1,6 @@
 
+from threading import stack_size
+import numpy as np
 import rospy
 import kdl_parser_py.urdf
 import PyKDL as kdl
@@ -6,7 +8,10 @@ import PyKDL as kdl
 
 class Kinematics():
 
-    def __init__(self, joint_states, param_name='robot_description'):
+    def __init__(self,
+                 joint_states,
+                 param_name='robot_description'):
+
         (ok, self.robot) = kdl_parser_py.urdf.treeFromParam(param_name)
 
         if not ok:
@@ -51,13 +56,13 @@ class Kinematics():
                     for chain in self.chains.values()
                     for name in chain['joints']]
 
-    # def getJointValues(self, chain=None):
-    #     if chain is not None:
-    #         return list(self.chains[chain]['values'])
-    #     else:
-    #         return [value
-    #                 for ch in self.chains.keys()
-    #                 for value in self.getJointValues(ch)]
+    def getJointValues(self, chain=None):
+        if chain is not None:
+            return [self.joint_states[j].p for j in self.chains[chain]['joints']]
+        else:
+            return [value
+                    for ch in self.chains.keys()
+                    for value in self.getJointValues(ch)]
 
     # def setJointValues(self, chain, values):
     #     assert isinstance(values, kdl.JntArray)
@@ -73,22 +78,26 @@ class Kinematics():
     #             self.reset(ch)
 
     def getJointKDLArray(self, chain):
-        return self.chains[chain]['values']
+        jnt_array = kdl.JntArray(len(self.chains[chain]['joints']))
+        for i, value in enumerate(self.getJointValues(chain)):
+            jnt_array[i] = value
+        return jnt_array
 
     def getJointNamesAndValues(self, chain=None):
         return zip(self.getJointNames(chain), self.getJointValues(chain))
 
     def FK(self, chain):
         fk = self.chains[chain]['FK']
-        ja = self.chains[chain]['values']
+        ja = self.getJointKDLArray(chain)
         F = kdl.Frame()
         fk.JntToCart(ja, F)
         return F
 
-    def IK(self, chain, frame):
+    def IK(self, chain, frame, q=None):
         # IK is from current position
         ik = self.chains[chain]['IK']
-        q = self.chains[chain]['values']
+        if q is None:
+            q = self.getJointKDLArray(chain)
         result = kdl.JntArray(self.getNrOfJoints(chain))
         ik.CartToJnt(q, frame, result)
         return result
@@ -97,7 +106,11 @@ class Kinematics():
         return list(self.FK(chain).p)
 
     def EERPY(self, chain):
-        return list(self.FK(chain).M.GetEulerZYX())
+        return list(self.FK(chain).M.GetGetRPY())
+
+    def EEPosRPY(self, chain):
+        frame = self.FK(chain)
+        return list(frame.p), list(frame.M.GetRPY())
 
     def __get_joint_names_from_chain(self, chain):
         names = []
@@ -106,3 +119,24 @@ class Kinematics():
             if joint.getType() != kdl.Joint.JointType.Fixed:
                 names.append(joint.getName())
         return names
+
+
+class LinearPoser:
+
+    def __init__(self, start_pose, end_pose, steps):
+        self.start_xyz = np.array(start_pose.p)
+        self.start_rpy = np.array(start_pose.M.GetRPY())
+        self.end_xyz = np.array(end_pose.p)
+        self.end_rpy = np.array(end_pose.M.GetRPY())
+        self.d_xyz = (self.end_xyz - self.start_xyz) / steps
+        self.d_rpy = (self.end_rpy - self.start_rpy) / steps
+        self.steps = steps
+
+    def __iter__(self):
+        for i in range(self.steps):
+            xyz = self.start_xyz + (i+1) * self.d_xyz
+            rpy = self.start_rpy + (i+1) * self.d_rpy
+            yield kdl.Frame(
+                V=kdl.Vector(xyz[0], xyz[1], xyz[2]),
+                R=kdl.Rotation.RPY(rpy[0], rpy[1], rpy[2])
+            )

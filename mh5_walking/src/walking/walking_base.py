@@ -5,12 +5,12 @@ import rospy
 from controller_manager_msgs.srv import ListControllers
 from controller_manager_msgs.srv import SwitchController, \
                                         SwitchControllerRequest
-from std_msgs.msg import String, Float64MultiArray
+from std_msgs.msg import String
+from trajectory_msgs.msg import JointTrajectoryPoint
 from sensor_msgs.msg import JointState
 from .kinematics import Kinematics
 
 JS = namedtuple('JS', ['p', 'v', 'l'])
-
 
 class WalkingBase:
 
@@ -100,8 +100,8 @@ class WalkingBase:
                 # store the joint in order they are handled by controller
                 pub = rospy.Publisher(
                     f'{controller.name}/command',
-                    Float64MultiArray,
-                    queue_size=5)
+                    JointTrajectoryPoint,
+                    queue_size=1)
                 self.controllers[controller.name] = {
                     'res': rospy.get_param(f'{controller.name}/joints'),
                     'pub': pub
@@ -133,11 +133,19 @@ class WalkingBase:
         joint state in `joint_states`.
         """
         for controller in self.controllers.values():
-            command = Float64MultiArray()
-            command.data = [0.0] * len(controller['res'])
-            for index, joint_name in enumerate(controller['res']):
-                command.data[index] = self.joint_commands.get(
-                    joint_name, self.joint_states[joint_name].p)
+            command = JointTrajectoryPoint()
+            command.positions = [0.0] * len(controller['res'])
+            command.velocities = [0.0] * len(controller['res'])
+            command.accelerations = [0.0] * len(controller['res'])
+            for i, joint_name in enumerate(controller['res']):
+                if joint_name in self.joint_commands:
+                    command.positions[i] = self.joint_commands[joint_name].p
+                    command.velocities[i] = self.joint_commands[joint_name].v
+                    command.accelerations[i] = command.velocities[i] / 4
+                else:
+                    command.positions[i] = self.joint_states[joint_name].p
+                    command.velocities[i] = self.joint_states[joint_name].v
+                    command.accelerations[i] = command.velocities[i] / 4
             controller['pub'].publish(command)
 
     def on_shutdown(self):
