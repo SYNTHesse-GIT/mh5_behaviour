@@ -56,15 +56,17 @@ class StaticWalking(WalkingBase):
             new_ll_q = self.K.IK('LL', pose_ll, ll_q)
             for i, jn in enumerate(self.K.getJointNames('LL')):
                 pos = new_ll_q[i]
-                vel = abs(new_ll_q[i] - ll_q[i]) * self.frecv
-                acc = vel / 2
+                # vel = abs(new_ll_q[i] - ll_q[i]) * self.frecv
+                vel = 1 / self.frecv
+                acc = vel / 4
                 self.joint_commands[jn] = JS(pos, vel, acc)
             ll_q = new_ll_q
             new_rl_q = self.K.IK('RL', pose_rl, rl_q)
             for i, jn in enumerate(self.K.getJointNames('RL')):
                 pos = new_rl_q[i]
-                vel = abs(new_rl_q[i] - rl_q[i]) * self.frecv
-                acc = vel / 2
+                # vel = abs(new_rl_q[i] - rl_q[i]) * self.frecv
+                vel = 1 / self.frecv
+                acc = vel / 4
                 self.joint_commands[jn] = JS(pos, vel, acc)
             rl_q = new_rl_q
             self.publishCommands()

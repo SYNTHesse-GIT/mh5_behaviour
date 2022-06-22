@@ -4,5 +4,5 @@ using: [
 ]
 
 params:
-  prep_t: 2.0   # prep time for start/stop pose
+  prep_t: 1.5   # prep time for start/stop pose
   frecv: 200
