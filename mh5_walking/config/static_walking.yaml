@@ -4,5 +4,8 @@ using: [
 ]
 
 params:
-  prep_t: 1.5   # prep time for start/stop pose
-  frecv: 200
+  prep_t: 1.0   # prep time for start/stop pose
+  frecv: 100
+  speed: 1.0
+  swing_A: 0.035
+  step_H: 0.020

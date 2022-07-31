@@ -19,97 +19,289 @@ class StaticWalking(WalkingBase):
         self.arms0 = params.get('arms0', -0.75)
         self.swing_A = params.get('swing_A', 0.032)
         self.step_L = params.get('step_L', 0.050)
-        self.step_H = params.get( 'step_H', 0.040)
+        self.step_H = params.get( 'step_H', 0.020)
         self.speed = params.get('speed', 1.0)
         self.frecv = params.get('frecv', 100)
+        self.vel = params.get('vel', 1 / self.frecv)    # time control; velocity profile
+        # self.acc = params.get('acc', self.vel/4)        # time control; acceleration profile
+        self.acc = 0
         self.prep_t = params.get('prep_t', 2.0)
         self.swing_t = params.get('swing_t', 0.5)
         self.step_t = params.get('step_t', 1.0)
         self.arms_th = params.get('arm_th', 0.75)
 
+    def setJointCommands(self, chain_name, qs, vels=None, accs=None):
+        if vels is None:
+            vels = [0.0] * qs.rows()
+        if accs is None:
+            accs = [0.0] * qs.rows()
+        print(qs.columns(), qs.rows(), len(vels), len(accs))
+        for i, jn in enumerate(self.K.getJointNames(chain_name)):
+            self.joint_commands[jn] = JS(qs[i], vels[i], accs[i])
+
+    def jntArrayDiff(self, arrA, arrB, factor=1.0):
+        return [abs(a-b)*factor for (a, b) in zip(arrA, arrB)]
+
     def startPose(self):
         # wait 2 s for the joint positions to be populated
         rospy.sleep(2)
         rospy.loginfo('Static walking: init pose starting...')
-        steps = self.frecv * self.prep_t  # number of commands to send
-        # show start pose
-        # for chain in ['LL', 'RL']:
-        #     pos, rpy = self.K.EEPosRPY(chain)
-        #     rospy.loginfo(f'{chain}-Q[]: {self.K.getJointValues(chain)}')
-        #     rospy.loginfo(f'{chain}-Pos: {pos}')
-        #     rospy.loginfo(f'{chain}-RPY: {rpy}')
-        # start pose
-        ll_sp = self.K.FK('LL')
-        rl_sp = self.K.FK('RL')
-        # rospy.loginfo(f'Beg Frame: Pos={ll_sp.p}, RPY={ll_sp.M.GetRPY()}')
-        # end pose
-        ll_ep = kdl.Frame(V=kdl.Vector(0.007, 0.0325, 0.03), R=kdl.Rotation.RPY(0,0,0))
-        # ll_ep.p[2] += 0.05
-        rl_ep = kdl.Frame(V=kdl.Vector(0.007, -0.0325, 0.03), R=kdl.Rotation.RPY(0,0,0))
-        # rospy.loginfo(f'End Frame: Pos={ll_ep.p}, RPY={ll_ep.M.GetRPY()}')
-        # rl_ep.p[2] += 0.05
-        ll_iter = LinearPoser(ll_sp, ll_ep, int(steps))
-        rl_iter = LinearPoser(rl_sp, rl_ep, int(steps))
-        ll_q = self.K.getJointKDLArray('LL')
-        rl_q = self.K.getJointKDLArray('RL')
-        for (pose_ll, pose_rl) in zip(ll_iter, rl_iter):
-            new_ll_q = self.K.IK('LL', pose_ll, ll_q)
-            for i, jn in enumerate(self.K.getJointNames('LL')):
-                pos = new_ll_q[i]
-                # vel = abs(new_ll_q[i] - ll_q[i]) * self.frecv
-                vel = 1 / self.frecv
-                acc = vel / 4
-                self.joint_commands[jn] = JS(pos, vel, acc)
-            ll_q = new_ll_q
-            new_rl_q = self.K.IK('RL', pose_rl, rl_q)
-            for i, jn in enumerate(self.K.getJointNames('RL')):
-                pos = new_rl_q[i]
-                # vel = abs(new_rl_q[i] - rl_q[i]) * self.frecv
-                vel = 1 / self.frecv
-                acc = vel / 4
-                self.joint_commands[jn] = JS(pos, vel, acc)
-            rl_q = new_rl_q
+        steps = int(self.frecv * self.prep_t)  # number of commands to send
+        curr_l_q = self.K.getJointKDLArray('LL')
+        curr_r_q = self.K.getJointKDLArray('RL')
+        l_poser = LinearPoser(
+            start_pose=self.K.FK('LL'),
+            end_pose=kdl.Frame(kdl.Vector(0.0, 0.0315, 0.013)),
+            steps=steps)
+        r_poser = LinearPoser(
+            start_pose=self.K.FK('RL'),
+            end_pose=kdl.Frame(kdl.Vector(0.0, -0.0315, 0.013)),
+            steps=steps)
+        for (l_pose, r_pose) in zip(l_poser, r_poser):
+            new_l_q = self.K.IK('LL', l_pose, curr_l_q)
+            l_vel = self.jntArrayDiff(new_l_q, curr_l_q, self.frecv*0.95)
+            self.setJointCommands('LL', new_l_q, l_vel)
+            curr_l_q = new_l_q
+            new_r_q = self.K.IK('RL', r_pose, curr_r_q)
+            r_vel = self.jntArrayDiff(new_r_q, curr_r_q, self.frecv*0.95)
+            self.setJointCommands('RL', new_r_q, r_vel)
+            curr_r_q = new_r_q
             self.publishCommands()
             rospy.sleep(1/self.frecv)
-        # ep.update(
-        #     l_sho_p=self.arms0, r_sho_p=self.arms0,
-        #     l_hip_p=self.legs0, l_kne_p=self.legs0 * 2, l_ank_p=self.legs0,
-        #     r_hip_p=self.legs0, r_kne_p=self.legs0 * 2, r_ank_p=self.legs0)
-        # for step in range(int(steps)):
-        #     for j in ep.keys():
-        #         position = sp[j] + (ep[j] - sp[j]) * (step + 1) / steps
-        #         velocity = (ep[j] - sp[j]) / steps
-        #         acceleration = velocity / 4
-        #         self.joint_commands[j] = JS(position, velocity, acceleration)
-        #     self.publishCommands()
-        #     rospy.sleep(1/self.frecv)
-
         rospy.loginfo('Static walking: start pose complete')
+        rospy.loginfo(f'LL Start Frame: \n{self.K.FK("LL")}')
+        rospy.loginfo(f'RL Start Frame: \n{self.K.FK("RL")}')
 
     def stopPose(self):
         rospy.loginfo('Static walking: stop pose starting...')
-        steps = self.frecv * self.prep_t  # number of commands to send
+        steps = int(self.frecv * self.prep_t)  # number of commands to send
+        curr_l_q = self.K.getJointKDLArray('LL')
+        curr_r_q = self.K.getJointKDLArray('RL')
+        l_poser = LinearPoser(
+            start_pose=self.K.FK('LL'),
+            end_pose=kdl.Frame(kdl.Vector(0.007, 0.032, 0.0915)),
+            steps=steps)
+        r_poser = LinearPoser(
+            start_pose=self.K.FK('RL'),
+            end_pose=kdl.Frame(kdl.Vector(0.007, -0.032, 0.0915)),
+            steps=steps)
+        for (l_pose, r_pose) in zip(l_poser, r_poser):
+            new_l_q = self.K.IK('LL', l_pose, curr_l_q)
+            l_vel = self.jntArrayDiff(new_l_q, curr_l_q, self.frecv*0.95)
+            self.setJointCommands('LL', new_l_q, l_vel)
+            curr_l_q = new_l_q
+            new_r_q = self.K.IK('RL', r_pose, curr_r_q)
+            r_vel = self.jntArrayDiff(new_r_q, curr_r_q, self.frecv*0.95)
+            self.setJointCommands('RL', new_r_q, r_vel)
+            curr_r_q = new_r_q
         # start pose
-        sp = {k: self.joint_states[k].p for k in self.joint_states.keys()}
-        # end pose
-        ep = {k: 0.0 for k in self.joint_states.keys()}
-        ep.update(
-            l_sho_p=self.arms0, r_sho_p=self.arms0,
-            l_hip_p=1.69, l_kne_p=3.57, l_ank_p=1.92,
-            r_hip_p=1.69, r_kne_p=3.57, r_ank_p=1.92)
-        for step in range(int(steps)):
-            for j in ep.keys():
-                position = sp[j] + (ep[j] - sp[j]) * (step + 1) / steps
-                velocity = (ep[j] - sp[j]) / steps
-                acceleration = velocity / 4
-                self.joint_commands[j] = JS(position, velocity, acceleration)
+        # sp = {k: self.joint_states[k].p for k in self.joint_states.keys()}
+        # # end pose
+        # ep = {k: 0.0 for k in self.joint_states.keys()}
+        # ep.update(
+        #     l_sho_p=self.arms0, r_sho_p=self.arms0,
+        #     l_hip_p=1.69, l_kne_p=3.57, l_ank_p=1.92,
+        #     r_hip_p=1.69, r_kne_p=3.57, r_ank_p=1.92)
+        # for step in range(int(steps)):
+        #     for j in ep.keys():
+        #         position = sp[j] + (ep[j] - sp[j]) * (step + 1) / steps
+        #         # velocity = (ep[j] - sp[j]) / steps * 0.8
+        #         # acceleration = velocity / 4
+        #         self.joint_commands[j] = JS(position, self.vel, self.acc)
             self.publishCommands()
             rospy.sleep(1/self.frecv)
         rospy.loginfo('Static walking: stop pose complete')
+        rospy.loginfo(f'LL Start Frame: \n{self.K.FK("LL")}')
+        rospy.loginfo(f'RL Start Frame: \n{self.K.FK("RL")}')
+
+    def start_walk(self, with_left=True):
+        if with_left:
+            supp, lift, fact = 'RL', 'LL', -1
+        else:
+            supp, lift, fact = 'LL', 'RL', 1
+
+        # start positions
+        supp_F = self.K.FK(supp)
+        supp_0 = kdl.Frame(supp_F)  # make a copy
+        supp_q = self.K.getJointKDLArray(supp)
+        lift_F = self.K.FK(lift)
+        lift_0 = kdl.Frame(lift_F)  # make a copy
+        lift_q = self.K.getJointKDLArray(lift)
+
+        # half swing
+        steps = int(self.swing_t * self.frecv * self.speed / 2.0)
+        for s in np.linspace(0, self.swing_A*fact, steps):
+            supp_F.p[1] = supp_0.p[1] - s
+            new_supp_q = self.K.IK(supp, supp_F, supp_q)
+            # self.K.setJointValues(supp, new_q)
+            for i, jn in enumerate(self.K.getJointNames(supp)):
+                self.joint_commands[jn] = JS(new_supp_q[i], self.vel, self.acc)
+            supp_q = new_supp_q
+            lift_F.p[1] = lift_0.p[1] - s
+            new_lift_q = self.K.IK(lift, lift_F, lift_q)
+            # self.K.setJointValues(lift, new_q)
+            for i, jn in enumerate(self.K.getJointNames(lift)):
+                self.joint_commands[jn] = JS(new_lift_q[i], self.vel, self.acc)
+            lift_q = new_lift_q
+            self.publishCommands()
+            rospy.sleep(1/self.frecv)
+        rospy.loginfo('start_walk')
+        rospy.loginfo('After swing:')
+        rospy.loginfo(f'LL Frame: \n{self.K.FK("LL")}')
+        rospy.loginfo(f'RL Frame: \n{self.K.FK("RL")}')
+
+        # half step
+        lift_F = self.K.FK(lift)
+        lift_0 = kdl.Frame(lift_F)  # make a copy
+        lift_q = self.K.getJointKDLArray(lift)
+        steps = int(self.step_t * self.frecv * self.speed)
+        dt = np.linspace(0, 2 * np.pi, steps)
+        xs = dt * self.step_L / (2 * np.pi)
+        zs = (1 - np.cos(dt))/2 * self.step_H
+        for (x, z) in zip(xs, zs):
+            # desired position
+            lift_F.p[0] = lift_0.p[0] + x
+            lift_F.p[2] = lift_0.p[2] + z
+            new_lift_q = self.K.IK(lift, lift_F, lift_q)
+            # self.K.setJointValues(lift, new_q)
+            for i, jn in enumerate(self.K.getJointNames(lift)):
+                self.joint_commands[jn] = JS(new_lift_q[i], self.vel, self.acc)
+            self.publishCommands()
+            rospy.sleep(1/self.frecv)
+        rospy.loginfo('After step:')
+        rospy.loginfo(f'LL Frame: \n{self.K.FK("LL")}')
+        rospy.loginfo(f'RL Frame: \n{self.K.FK("RL")}')
+
+    def propulsion(self, to_left=True):
+        if to_left:
+            supp, targ, fact = 'RL', 'LL', 1
+        else:
+            supp, targ, fact = 'LL', 'RL', -1
+
+        # start positions
+        supp_F = self.K.FK(supp)
+        supp_0 = kdl.Frame(supp_F)  # make a copy
+        supp_q = self.K.getJointKDLArray(supp)
+        targ_F = self.K.FK(targ)
+        targ_0 = kdl.Frame(targ_F)  # make a copy
+        targ_q = self.K.getJointKDLArray(targ)
+
+        # swing
+        steps = int(self.swing_t * self.frecv * self.speed)
+        dy = np.linspace(0, 2 * self.swing_A * fact, steps)
+        dx = np.linspace(0, self.step_L, steps)
+        for x, y in zip(dx, dy):
+            supp_F.p[0] = supp_0.p[0] - x
+            supp_F.p[1] = supp_0.p[1] - y
+            new_supp_q = self.K.IK(supp, supp_F, supp_q)
+            # self.K.setJointValues(supp, new_q)
+            for i, jn in enumerate(self.K.getJointNames(supp)):
+                self.joint_commands[jn] = JS(new_supp_q[i], self.vel, self.acc)
+            supp_q = new_supp_q
+            targ_F.p[0] = targ_0.p[0] - x
+            targ_F.p[1] = targ_0.p[1] - y
+            new_targ_q = self.K.IK(targ, targ_F, targ_q)
+            # self.K.setJointValues(targ, new_q)
+            for i, jn in enumerate(self.K.getJointNames(targ)):
+                self.joint_commands[jn] = JS(new_targ_q[i], self.vel, self.acc)
+            targ_q = new_targ_q
+            self.publishCommands()
+            rospy.sleep(1/self.frecv)
+        rospy.loginfo('Propulsion:')
+        rospy.loginfo(f'LL Frame: \n{self.K.FK("LL")}')
+        rospy.loginfo(f'RL Frame: \n{self.K.FK("RL")}')
+
+    def step(self, with_left=True):
+        lift = 'LL' if with_left else 'RL'
+        # start positions
+        lift_F = self.K.FK(lift)
+        lift_0 = kdl.Frame(lift_F)  # make a copy
+        lift_q = self.K.getJointKDLArray(lift)
+        steps = int(self.step_t * self.frecv * self.speed)
+        dt = np.linspace(0, 2 * np.pi, steps)
+        xs = dt * self.step_L * 2 / (2 * np.pi)
+        zs = (1 - np.cos(dt))/2 * self.step_H
+        for (x, z) in zip(xs, zs):
+            # desired position
+            lift_F.p[0] = lift_0.p[0] + x
+            lift_F.p[2] = lift_0.p[2] + z
+            new_lift_q = self.K.IK(lift, lift_F, lift_q)
+            # self.K.setJointValues(lift, new_q)
+            for i, jn in enumerate(self.K.getJointNames(lift)):
+                self.joint_commands[jn] = JS(new_lift_q[i], self.vel, self.acc)
+            lift_q = new_lift_q
+            self.publishCommands()
+            rospy.sleep(1/self.frecv)
+        rospy.loginfo('Step:')
+        rospy.loginfo(f'LL Frame: \n{self.K.FK("LL")}')
+        rospy.loginfo(f'RL Frame: \n{self.K.FK("RL")}')
+
+    def stop_walk(self, with_left=True):
+        if with_left:
+            supp, lift, fact = 'RL', 'LL', -1
+        else:
+            supp, lift, fact = 'LL', 'RL', 1
+
+        # start positions
+        supp_F = self.K.FK(supp)
+        supp_0 = kdl.Frame(supp_F)  # make a copy
+        supp_q = self.K.getJointKDLArray(supp)
+        lift_F = self.K.FK(lift)
+        lift_0 = kdl.Frame(lift_F)  # make a copy
+        lift_q = self.K.getJointKDLArray(lift)
+
+        # half step
+        # lift_F = self.K.FK(lift)
+        # lift_0 = kdl.Frame(lift_F)  # make a copy
+        steps = int(self.step_t * self.frecv * self.speed)
+        dt = np.linspace(0, 2 * np.pi, steps)
+        xs = dt * self.step_L / (2 * np.pi)
+        zs = (1 - np.cos(dt))/2 * self.step_H
+        for (x, z) in zip(xs, zs):
+            # desired position
+            lift_F.p[0] = lift_0.p[0] + x
+            lift_F.p[2] = lift_0.p[2] + z
+            new_lift_q = self.K.IK(lift, lift_F, lift_q)
+            # self.K.setJointValues(lift, new_q)
+            for i, jn in enumerate(self.K.getJointNames(lift)):
+                self.joint_commands[jn] = JS(new_lift_q[i], self.vel, self.acc)
+            lift_q = new_lift_q
+            self.publishCommands()
+            rospy.sleep(1/self.frecv)
+        rospy.loginfo('stop_walk:')
+        rospy.loginfo('Step:')
+        rospy.loginfo(f'LL Frame: \n{self.K.FK("LL")}')
+        rospy.loginfo(f'RL Frame: \n{self.K.FK("RL")}')
+
+        # half swing
+        steps = int(self.swing_t * self.frecv * self.speed / 2.0)
+        for s in np.linspace(0, self.swing_A*fact, steps):
+            supp_F.p[1] = supp_0.p[1] + s
+            new_supp_q = self.K.IK(supp, supp_F, supp_q)
+            # self.K.setJointValues(supp, new_q)
+            for i, jn in enumerate(self.K.getJointNames(supp)):
+                self.joint_commands[jn] = JS(new_supp_q[i], self.vel, self.acc)
+            supp_q = new_supp_q
+            lift_F.p[1] = lift_0.p[1] + s
+            new_lift_q = self.K.IK(lift, lift_F, lift_q)
+            # self.K.setJointValues(lift, new_q)
+            for i, jn in enumerate(self.K.getJointNames(lift)):
+                self.joint_commands[jn] = JS(new_lift_q[i], self.vel, self.acc)
+            lift_q = new_lift_q
+            self.publishCommands()
+            rospy.sleep(1/self.frecv)
+        rospy.loginfo('swing:')
+        rospy.loginfo(f'LL Frame: \n{self.K.FK("LL")}')
+        rospy.loginfo(f'RL Frame: \n{self.K.FK("RL")}')
 
     def handleCommandCallback(self, msg):
         if msg.data == 'start':
             rospy.loginfo('starting walk')
+            self.start_walk()
+            self.propulsion()
+            self.step(with_left=False)
+            self.propulsion(to_left=False)
+            self.stop_walk()
             return
         if msg.data == 'stop':
             rospy.loginfo('stopping walk')

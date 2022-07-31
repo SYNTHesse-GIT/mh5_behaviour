@@ -64,10 +64,14 @@ class Kinematics():
                     for ch in self.chains.keys()
                     for value in self.getJointValues(ch)]
 
-    # def setJointValues(self, chain, values):
-    #     assert isinstance(values, kdl.JntArray)
-    #     # we need to re-allocate because = assigns the link
-    #     self.chains[chain]['values'] = kdl.JntArray(values)
+    # def setJointValues(self, chain, q, vel, acc, joint_commands):
+    #     # assert isinstance(values, kdl.JntArray)
+    #     # # we need to re-allocate because = assigns the link
+    #     # self.chains[chain]['values'] = kdl.JntArray(values)
+    #     for i, jn in enumerate(self.getJointNames(chain)):
+    #             joint_commands[jn].p = q[i]
+    #             joint_commands[jn].p = vel
+    #             joint_commands[jn].p = acc
 
     # def reset(self, chain=None):
     #     if chain is not None:

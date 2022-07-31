@@ -10,7 +10,9 @@ from trajectory_msgs.msg import JointTrajectoryPoint
 from sensor_msgs.msg import JointState
 from .kinematics import Kinematics
 
+
 JS = namedtuple('JS', ['p', 'v', 'l'])
+
 
 class WalkingBase:
 
@@ -141,11 +143,11 @@ class WalkingBase:
                 if joint_name in self.joint_commands:
                     command.positions[i] = self.joint_commands[joint_name].p
                     command.velocities[i] = self.joint_commands[joint_name].v
-                    command.accelerations[i] = command.velocities[i] / 4
+                    command.accelerations[i] = command.velocities[i] / 8
                 else:
                     command.positions[i] = self.joint_states[joint_name].p
                     command.velocities[i] = self.joint_states[joint_name].v
-                    command.accelerations[i] = command.velocities[i] / 4
+                    command.accelerations[i] = command.velocities[i] / 8
             controller['pub'].publish(command)
 
     def on_shutdown(self):
