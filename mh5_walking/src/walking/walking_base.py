@@ -1,6 +1,7 @@
 from collections import namedtuple
 
 import rospy
+import PyKDL as kdl
 
 from controller_manager_msgs.srv import ListControllers
 from controller_manager_msgs.srv import SwitchController, \
@@ -8,10 +9,45 @@ from controller_manager_msgs.srv import SwitchController, \
 from std_msgs.msg import String
 from trajectory_msgs.msg import JointTrajectoryPoint
 from sensor_msgs.msg import JointState
-from .kinematics import Kinematics
+from .kinematics import Kinematics, LinearPoser
+
+# joint state
+JS = namedtuple('JS', ['p', 'v', 'a', 'l'], defaults=[0, 0, 0, 0])
 
 
-JS = namedtuple('JS', ['p', 'v', 'l'])
+# class WalkingFSM:
+
+#     def __init__(self):
+#         self.state = None
+#         self.next_foot = 0         # no swing foot yet
+#         self.start_standing()
+
+#     def run(self):
+#         if self.state == "Standing":
+#             self.run_standing()
+#         elif self.state == "DoubleSupport":
+#             self.run_double_support()
+#         elif self.state == "SingleSupport":
+#             self.run_single_support()
+#         else:
+#             raise Exception(f"Unknown state: {self.state}")
+
+#     def start_standing(self):
+#         self.should_start_walking = False
+#         self.state = "Standing"
+#         self.run_standing()
+
+#     def run_standing(self):
+#         if self.should_start_walking:
+#             self.should_start_walking = False
+#             self.start_double_support()
+
+#     def start_double_support(self):
+#         self.state = "DoubleSupport"
+#         # mpc
+#         self.run_double_support()
+
+#     def run_double_support(self):
 
 
 class WalkingBase:
@@ -38,7 +74,10 @@ class WalkingBase:
         self.readParams(name_space)
         self.startSubscribers(name_space)
         self.startControllers()
-        self.startPose()
+        # self.startPose()
+        self.state = "Standing"
+        self.start_standing()
+        self.timer = rospy.Timer(rospy.Duration(self.dt), self.run)
         rospy.on_shutdown(self.on_shutdown)
 
     def readParams(self, name_space):
@@ -49,6 +88,15 @@ class WalkingBase:
             rospy.logerror(message)
             raise ValueError(message)
         self.using_controllers = self.params['using']
+        params = self.params.get('params', {})
+        self.dt = params.get('dt', 0.05)
+        self.foot_spread = params.get('foot_spread', 0.033)
+        self.step_size = params.get('step_size', 0.050)
+        self.stand_z = params.get('stand_z', 0.013)
+        self.stanz_x = params.get('stand_x', 0.005)
+        self.prep_t = params.get('prep_t', 1.0)
+        self.phase_total_steps = None
+        self.phase_step = None
 
     def startSubscribers(self, name):
         self.command = rospy.Subscriber(
@@ -119,6 +167,46 @@ class WalkingBase:
             else:
                 rospy.loginfo(f'failed to stop controller {controller}')
 
+    def run(self):
+        if self.state == "Standing":
+            self.run_standing()
+        elif self.state == "DoubleSupport":
+            self.run_double_support()
+        elif self.state == "SingleSupport":
+            self.run_single_support()
+        else:
+            raise Exception(f"Unknown state: {self.state}")
+
+    def start_standing(self):
+        self.phase_total_steps = int(self.prep_t / self.dt)
+        self.phase_step = 1
+        self.frame_iters = []
+        llP = kdl.Vector(self.stand_x, self.foot_spread, self.stand_z)
+        self.frame_iters.append(LinearPoser(
+            self.K.left_leg, self.phase_total_steps, kdl.Frame(llP)))
+        rlP = kdl.Vector(self.stand_x, -self.foot_spread, self.stand_z)
+        self.frame_iters.append(LinearPoser(
+            self.K.right_leg, self.phase_total_steps, kdl.Frame(rlP)))
+
+    def run_standing(self):
+        if self.phase_step <= self.phase_total_steps:
+            for frame_iter in self.frame_iters:
+                frame = frame_iter.frame(self.phase_step)
+                qs = frame_iter.chain.ik(frame)
+
+
+    def start_double_support(self):
+        pass
+
+    def run_double_support(self):
+        pass
+
+    def start_single_support(self):
+        pass
+
+    def run_single_support(self):
+        pass
+
     def startPose(self):
         pass
 
@@ -143,11 +231,11 @@ class WalkingBase:
                 if joint_name in self.joint_commands:
                     command.positions[i] = self.joint_commands[joint_name].p
                     command.velocities[i] = self.joint_commands[joint_name].v
-                    command.accelerations[i] = command.velocities[i] / 8
+                    command.accelerations[i] = self.joint_commands[joint_name].a
                 else:
                     command.positions[i] = self.joint_states[joint_name].p
                     command.velocities[i] = self.joint_states[joint_name].v
-                    command.accelerations[i] = command.velocities[i] / 8
+                    command.accelerations[i] = 0
             controller['pub'].publish(command)
 
     def on_shutdown(self):

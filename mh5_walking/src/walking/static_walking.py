@@ -35,9 +35,8 @@ class StaticWalking(WalkingBase):
             vels = [0.0] * qs.rows()
         if accs is None:
             accs = [0.0] * qs.rows()
-        print(qs.columns(), qs.rows(), len(vels), len(accs))
         for i, jn in enumerate(self.K.getJointNames(chain_name)):
-            self.joint_commands[jn] = JS(qs[i], vels[i], accs[i])
+            self.joint_commands[jn] = JS(p=qs[i], v=vels[i], a=accs[i])
 
     def jntArrayDiff(self, arrA, arrB, factor=1.0):
         return [abs(a-b)*factor for (a, b) in zip(arrA, arrB)]
@@ -59,11 +58,11 @@ class StaticWalking(WalkingBase):
             steps=steps)
         for (l_pose, r_pose) in zip(l_poser, r_poser):
             new_l_q = self.K.IK('LL', l_pose, curr_l_q)
-            l_vel = self.jntArrayDiff(new_l_q, curr_l_q, self.frecv*0.95)
+            l_vel = self.jntArrayDiff(new_l_q, curr_l_q, self.frecv*0.9)
             self.setJointCommands('LL', new_l_q, l_vel)
             curr_l_q = new_l_q
             new_r_q = self.K.IK('RL', r_pose, curr_r_q)
-            r_vel = self.jntArrayDiff(new_r_q, curr_r_q, self.frecv*0.95)
+            r_vel = self.jntArrayDiff(new_r_q, curr_r_q, self.frecv*0.9)
             self.setJointCommands('RL', new_r_q, r_vel)
             curr_r_q = new_r_q
             self.publishCommands()
@@ -87,11 +86,11 @@ class StaticWalking(WalkingBase):
             steps=steps)
         for (l_pose, r_pose) in zip(l_poser, r_poser):
             new_l_q = self.K.IK('LL', l_pose, curr_l_q)
-            l_vel = self.jntArrayDiff(new_l_q, curr_l_q, self.frecv*0.95)
+            l_vel = self.jntArrayDiff(new_l_q, curr_l_q, self.frecv*0.9)
             self.setJointCommands('LL', new_l_q, l_vel)
             curr_l_q = new_l_q
             new_r_q = self.K.IK('RL', r_pose, curr_r_q)
-            r_vel = self.jntArrayDiff(new_r_q, curr_r_q, self.frecv*0.95)
+            r_vel = self.jntArrayDiff(new_r_q, curr_r_q, self.frecv*0.9)
             self.setJointCommands('RL', new_r_q, r_vel)
             curr_r_q = new_r_q
         # start pose
@@ -113,6 +112,9 @@ class StaticWalking(WalkingBase):
         rospy.loginfo('Static walking: stop pose complete')
         rospy.loginfo(f'LL Start Frame: \n{self.K.FK("LL")}')
         rospy.loginfo(f'RL Start Frame: \n{self.K.FK("RL")}')
+        # wait 2 more secs to finish all moves; 
+        # after this the servos will be deactivated
+        rospy.sleep(2)
 
     def start_walk(self, with_left=True):
         if with_left:
