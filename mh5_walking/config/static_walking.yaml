@@ -1,12 +1,14 @@
 using: [
-  arms_pos_controller,
+  # arms_pos_controller,
   legs_pos_controller
 ]
 
 params:
-  dt: 0.05      # timer rate for movements
-  prep_t: 1.0   # prep time for start/stop pose
-  frecv: 100
-  speed: 2.0
-  swing_A: 0.035
-  step_H: 0.020
+  dt: 0.02            # timer rate for movements
+  prep_t: 3.0         # prep time for start/stop pose
+
+  foot_spread: 0.033  # center of foot to CoM projection
+  stand_x: 0.005      # X position for stand
+  stand_z: 0.013      # Z position for stand
+  sit_x:   0.007      # X position for sit
+  sit_z:   0.091      # Z position for sit

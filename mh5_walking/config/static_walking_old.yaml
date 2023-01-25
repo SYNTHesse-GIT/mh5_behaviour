@@ -1,0 +1,18 @@
+using: [
+  arms_pos_controller,
+  legs_pos_controller
+]
+
+params:
+  dt: 0.05      # timer rate for movements
+  prep_t: 1.0   # prep time for start/stop pose
+  frecv: 100
+  speed: 2.0
+  swing_A: 0.035
+  step_H: 0.020
+
+  foot_spread: 0.033
+  stand_x: 0.005
+  stand_z: 0.013
+
+  
