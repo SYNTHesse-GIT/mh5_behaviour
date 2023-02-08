@@ -4,11 +4,18 @@ using: [
 ]
 
 params:
-  dt: 0.02            # timer rate for movements
+  dt: 0.01            # timer rate for movements
   prep_t: 3.0         # prep time for start/stop pose
 
   foot_spread: 0.033  # center of foot to CoM projection
-  stand_x: 0.005      # X position for stand
+  stand_x: -0.01      # X position for stand
   stand_z: 0.013      # Z position for stand
   sit_x:   0.007      # X position for sit
   sit_z:   0.091      # Z position for sit
+
+  dsp_duration: 1.0   # DSP duration
+  ssp_duration: 3.0   # SSP duration
+  swing_direction: -1 # swing right
+  swing_y: 0.05       # swing amount (at pelvis)
+  step_x: 0.05        # forward step length
+  step_z: 0.03        # foot lift during step

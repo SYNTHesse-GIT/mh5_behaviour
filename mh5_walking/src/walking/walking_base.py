@@ -3,7 +3,8 @@ from collections import namedtuple
 import rospy
 
 from controller_manager_msgs.srv import ListControllers
-from controller_manager_msgs.srv import SwitchController, SwitchControllerRequest
+from controller_manager_msgs.srv import SwitchController
+from controller_manager_msgs.srv import SwitchControllerRequest
 from std_msgs.msg import String
 from sensor_msgs.msg import JointState
 from trajectory_msgs.msg import JointTrajectoryPoint
@@ -43,7 +44,7 @@ class WalkingBase:
         self.read_params(name_space)
         self.start_subscribers(name_space)
         self.start_controllers()
-        # wait for the joint_states messages as they are needed to initialize 
+        # wait for the joint_states messages as they are needed to initialize
         # the pose iterators
         rospy.sleep(2)
 
@@ -156,9 +157,9 @@ class WalkingBase:
         elif self.state == "Standing":
             self.run_standing()
         elif self.state == "DoubleSupport":
-            self.run_double_support()
+            self.run_dsp()
         elif self.state == "SingleSupport":
-            self.run_single_support()
+            self.run_ssp()
         elif self.state == 'Stopping':
             self.run_stop_pose()
         # else:
@@ -197,6 +198,18 @@ class WalkingBase:
     def run_standing(self):
         pass
 
+    def start_dsp(self):
+        self.state = "DoubleSupport"
+
+    def run_dsp(self):
+        pass
+
+    def start_ssp(self):
+        self.state = "SingleSupport"
+
+    def run_ssp(self):
+        pass
+
     def stop_pose(self):
         rospy.loginfo('Starting sitting pose...')
         self.phase_total_steps = int(self.prep_t / self.dt)
@@ -222,7 +235,6 @@ class WalkingBase:
             self.phase_step += 1
         else:
             self.state = 'Sitting'
-
 
     def jntArrayDiff(self, arrA, arrB, factor=1.0):
         return [abs(a-b)*factor for (a, b) in zip(arrA, arrB)]

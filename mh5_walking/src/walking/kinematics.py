@@ -1,5 +1,4 @@
 
-from threading import stack_size
 import numpy as np
 import rospy
 import kdl_parser_py.urdf
@@ -81,11 +80,26 @@ class Kinematics():
         #         'FK': kdl.ChainFkSolverPos_recursive(chain),
         #         'IK': kdl.ChainIkSolverPos_LMA(chain)
         #     }
-        self.left_leg = Chain(self.robot.getChain("base_link", "left_landing"), joint_states)
-        self.right_leg = Chain(self.robot.getChain("base_link", "right_landing"), joint_states)
-        self.left_arm = Chain(self.robot.getChain("base_link", "left_hand"), joint_states)
-        self.right_arm = Chain(self.robot.getChain("base_link", "right_hand"), joint_states)
-        self.head = Chain(self.robot.getChain("base_link", "left_camera"), joint_states)
+        self.left_leg = Chain(
+            self.robot.getChain("base_link", "left_landing"),
+            joint_states
+        )
+        self.right_leg = Chain(
+            self.robot.getChain("base_link", "right_landing"),
+            joint_states
+        )
+        self.left_arm = Chain(
+            self.robot.getChain("base_link", "left_hand"),
+            joint_states
+        )
+        self.right_arm = Chain(
+            self.robot.getChain("base_link", "right_hand"),
+            joint_states
+        )
+        self.head = Chain(
+            self.robot.getChain("base_link", "left_camera"),
+            joint_states
+        )
         self.joint_states = joint_states
 
     # def getChains(self):
@@ -107,14 +121,6 @@ class Kinematics():
     #         return [name
     #                 for chain in self.chains.values()
     #                 for name in chain['joints']]
-
-    # def getJointValues(self, chain=None):
-    #     if chain is not None:
-    #         return [self.joint_states[j].p for j in self.chains[chain]['joints']]
-    #     else:
-    #         return [value
-    #                 for ch in self.chains.keys()
-    #                 for value in self.getJointValues(ch)]
 
     # def setJointValues(self, chain, q, vel, acc, joint_commands):
     #     # assert isinstance(values, kdl.JntArray)
@@ -195,6 +201,34 @@ class LinearPoser:
     def frame(self, step):
         assert self.steps >= step > 0
         xyz = self.start_xyz + step * self.d_xyz
+        rpy = self.start_rpy + step * self.d_rpy
+        return kdl.Frame(
+                V=kdl.Vector(xyz[0], xyz[1], xyz[2]),
+                R=kdl.Rotation.RPY(rpy[0], rpy[1], rpy[2]))
+
+
+class SinPoser:
+
+    def __init__(self, chain, steps, lift, end_frame, start_frame=None):
+        self.chain = chain
+        if start_frame is None:
+            start_frame = chain.fk()
+        self.start_xyz = start_frame.p
+        rpy = start_frame.M.GetRPY()
+        self.start_rpy = kdl.Vector(rpy[0], rpy[1], rpy[2])
+        self.end_xyz = end_frame.p
+        rpy = end_frame.M.GetRPY()
+        self.end_rpy = kdl.Vector(rpy[0], rpy[1], rpy[2])
+        self.d_xyz = (self.end_xyz - self.start_xyz) / steps
+        self.d_rpy = (self.end_rpy - self.start_rpy) / steps
+        self.steps = steps
+        self.lift = lift
+        self.qs = chain.q
+
+    def frame(self, step):
+        assert self.steps >= step > 0
+        delta_z = kdl.Vector(0, 0, np.sin(np.pi*step/self.steps) * self.lift)
+        xyz = self.start_xyz + step * self.d_xyz + delta_z
         rpy = self.start_rpy + step * self.d_rpy
         return kdl.Frame(
                 V=kdl.Vector(xyz[0], xyz[1], xyz[2]),
